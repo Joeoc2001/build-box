@@ -38,11 +38,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
     && cargo install wasm-bindgen-cli
 ENV PATH="/usr/local/cargo/bin:${PATH}"
 
-RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-RUN cargo binstall wasm-bindgen --no-confirm \
-    && cargo binstall wasm-pack --no-confirm \
-    && cargo binstall twiggy --no-confirm \
-    && cargo binstall wasm-opt --no-confirm
+RUN cargo install wasm-bindgen-cli wasm-pack twiggy wasm-opt
 
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "awscliv2.zip" \
     && unzip awscliv2.zip \
