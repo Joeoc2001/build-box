@@ -37,7 +37,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/Dockerfile.env
+          file: Dockerfile
           push: true
           cache-from: type=gha,scope=env
           cache-to: type=gha,mode=max,scope=env
