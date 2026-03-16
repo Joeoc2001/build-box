@@ -46,8 +46,7 @@ RUN SCCACHE_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64
     && curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-${SCCACHE_ARCH}-unknown-linux-musl.tar.gz" | tar -xz -C /tmp \
     && mv /tmp/sccache-v${SCCACHE_VERSION}-${SCCACHE_ARCH}-unknown-linux-musl/sccache /usr/local/bin/ \
     && rm -rf /tmp/sccache-*
-
-ENV RUSTC_WRAPPER="/usr/local/bin/sccache"
+ENV PATH="/usr/local/bin:${PATH}"
 
 # ── Layer 6: Go ──────────────────────────────────────────────────────────
 ARG GO_VERSION=1.26.0
