@@ -39,12 +39,21 @@ RUN GLAB_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") \
     && mv /tmp/bin/glab /usr/local/bin/ \
     && rm -rf /tmp/bin
 
-# ── Layer 5: Go ──────────────────────────────────────────────────────────
+# ── Layer 5: sccache ─────────────────────────────────────────────────────
+# renovate: datasource=github-releases depName=mozilla/sccache
+ARG SCCACHE_VERSION=0.14.0
+RUN SCCACHE_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
+    && curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-${SCCACHE_ARCH}-unknown-linux-musl.tar.gz" | tar -xz -C /tmp \
+    && mv /tmp/sccache-v${SCCACHE_VERSION}-${SCCACHE_ARCH}-unknown-linux-musl/sccache /usr/local/bin/ \
+    && rm -rf /tmp/sccache-*
+ENV PATH="/usr/local/bin:${PATH}"
+
+# ── Layer 6: Go ──────────────────────────────────────────────────────────
 ARG GO_VERSION=1.26.0
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" | tar -C /usr/local -xz
 ENV PATH="/usr/local/go/bin:${PATH}"
 
-# ── Layer 6: Rust toolchains + wasm targets ──────────────────────────────
+# ── Layer 7: Rust toolchains + wasm targets ──────────────────────────────
 ENV RUSTUP_HOME="/usr/local/rustup" \
     CARGO_HOME="/usr/local/cargo"
 ENV PATH="/usr/local/cargo/bin:${PATH}"
@@ -76,7 +85,7 @@ FROM base
 
 COPY --from=rust-tools /cargo-bin/* /usr/local/cargo/bin/
 
-# ── Layer 7: AWS CLI ─────────────────────────────────────────────────────
+# ── Layer 8: AWS CLI ─────────────────────────────────────────────────────
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip \
     && unzip -q /tmp/awscliv2.zip -d /tmp \
     && /tmp/aws/install \
