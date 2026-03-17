@@ -60,6 +60,7 @@ ENV PATH="/usr/local/cargo/bin:${PATH}"
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
     && rustup toolchain install nightly \
+    && rustup component add rust-src --toolchain nightly \
     && rustup target add wasm32-unknown-unknown \
     && rustup target add wasm32-unknown-unknown --toolchain nightly \
     && rustup target add aarch64-unknown-linux-gnu
