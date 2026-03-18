@@ -15,7 +15,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
     curl wget git jq ripgrep unzip ca-certificates gnupg xdg-utils \
     build-essential g++ cmake make pkg-config \
-    gcc-aarch64-linux-gnu \
+    gcc-aarch64-linux-gnu clang mold lld \
     python3 python3-pip python3-venv \
     openjdk-21-jdk-headless \
     libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev
@@ -58,6 +58,9 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ENV RUSTUP_HOME="/usr/local/rustup" \
     CARGO_HOME="/usr/local/cargo"
 ENV PATH="/usr/local/cargo/bin:${PATH}"
+
+RUN mkdir -p /usr/local/cargo \
+    && printf '[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n\n[target.aarch64-unknown-linux-gnu]\nlinker = "clang"\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n' > /usr/local/cargo/config.toml
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
     && rustup toolchain install nightly \
