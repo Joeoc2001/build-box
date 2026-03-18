@@ -15,7 +15,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
     curl wget git jq ripgrep unzip ca-certificates gnupg xdg-utils \
     build-essential g++ cmake make pkg-config \
-    gcc-aarch64-linux-gnu clang mold lld \
+    gcc-aarch64-linux-gnu libc6-dev-arm64-cross clang mold lld \
     python3 python3-pip python3-venv \
     openjdk-21-jdk-headless \
     libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev
