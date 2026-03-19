@@ -72,7 +72,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 # Zig bundles a cross-compilation toolchain, eliminating the need for
 # gcc-aarch64, arm64 apt sources, and pkg-config wrappers.
 # renovate: datasource=github-releases depName=ziglang/zig
-ARG ZIG_VERSION=0.14.1
+ARG ZIG_VERSION=0.13.0
 RUN ZIG_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
     && curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}.tar.xz" | tar -xJ -C /opt \
     && ln -s /opt/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}/zig /usr/local/bin/zig
