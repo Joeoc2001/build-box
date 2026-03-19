@@ -12,13 +12,15 @@ ARG TARGETARCH
 # bump doesn't invalidate the base apt layer.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
+    dpkg --add-architecture arm64 \
+    && apt-get update && apt-get install -y --no-install-recommends \
     curl wget git jq ripgrep unzip ca-certificates gnupg xdg-utils \
     build-essential g++ cmake make pkg-config \
-    gcc-aarch64-linux-gnu libc6-dev-arm64-cross clang mold lld \
+    gcc-aarch64-linux-gnu libc6-dev-arm64-cross libstdc++-13-dev-arm64-cross clang mold lld \
     python3 python3-pip python3-venv \
     openjdk-21-jdk-headless \
-    libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev
+    libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev \
+    libssl-dev:arm64
 
 # ── Layer 2: External apt repos + packages (NodeSource, Docker, GH CLI) ─
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
