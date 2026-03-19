@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     python3 python3-pip python3-venv \
     openjdk-21-jdk-headless \
     libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev \
-    libssl-dev:arm64
+    libssl-dev:arm64 libudev-dev:arm64
 
 # ── Layer 2: External apt repos + packages (NodeSource, Docker, GH CLI) ─
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -81,6 +81,12 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
     && rustup target add wasm32-unknown-unknown \
     && rustup target add wasm32-unknown-unknown --toolchain nightly \
     && rustup target add aarch64-unknown-linux-gnu
+
+# pkg-config wrapper for aarch64 cross-compilation
+RUN printf '#!/bin/sh\nexec env PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig PKG_CONFIG_SYSROOT_DIR=/ pkg-config "$@"\n' \
+        > /usr/local/bin/aarch64-linux-gnu-pkg-config \
+    && chmod +x /usr/local/bin/aarch64-linux-gnu-pkg-config
+ENV PKG_CONFIG_AARCH64_UNKNOWN_LINUX_GNU=aarch64-linux-gnu-pkg-config
 
 # ── Stage: build Rust CLI tools in an isolated layer ─────────────────────
 # cargo install leaves behind build trees in $CARGO_HOME/registry and
