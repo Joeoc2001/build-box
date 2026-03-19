@@ -13,6 +13,17 @@ ARG TARGETARCH
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     dpkg --add-architecture arm64 \
+    && if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
+         sed -i '/^Types:/a Architectures: amd64' /etc/apt/sources.list.d/ubuntu.sources; \
+       elif [ -f /etc/apt/sources.list ]; then \
+         sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list; \
+       fi \
+    && printf '%s\n' \
+         "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse" \
+         "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse" \
+         "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse" \
+         "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse" \
+         > /etc/apt/sources.list.d/arm64-ports.list \
     && apt-get update && apt-get install -y --no-install-recommends \
     curl wget git jq ripgrep unzip ca-certificates gnupg xdg-utils \
     build-essential g++ cmake make pkg-config \
