@@ -12,26 +12,12 @@ ARG TARGETARCH
 # bump doesn't invalidate the base apt layer.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    dpkg --add-architecture arm64 \
-    && if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
-         sed -i '/^Types:/a Architectures: amd64' /etc/apt/sources.list.d/ubuntu.sources; \
-       elif [ -f /etc/apt/sources.list ]; then \
-         sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list; \
-       fi \
-    && printf '%s\n' \
-         "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse" \
-         "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse" \
-         "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse" \
-         "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse" \
-         > /etc/apt/sources.list.d/arm64-ports.list \
-    && apt-get update && apt-get install -y --no-install-recommends \
+    apt-get update && apt-get install -y --no-install-recommends \
     curl wget git jq ripgrep unzip ca-certificates gnupg xdg-utils \
-    build-essential g++ cmake make pkg-config \
-    gcc-aarch64-linux-gnu libc6-dev-arm64-cross libstdc++-13-dev-arm64-cross clang mold lld \
+    build-essential g++ cmake make pkg-config clang mold lld \
     python3 python3-pip python3-venv \
     openjdk-21-jdk-headless \
-    libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev \
-    libssl-dev:arm64 libudev-dev:arm64
+    libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev
 
 # ── Layer 2: External apt repos + packages (NodeSource, Docker, GH CLI) ─
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -72,12 +58,8 @@ ENV RUSTUP_HOME="/usr/local/rustup" \
     CARGO_HOME="/usr/local/cargo"
 ENV PATH="/usr/local/cargo/bin:${PATH}"
 
-ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
-    CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
-    AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
-
 RUN mkdir -p /usr/local/cargo \
-    && printf '[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n\n[target.aarch64-unknown-linux-gnu]\nlinker = "aarch64-linux-gnu-gcc"\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n' > /usr/local/cargo/config.toml
+    && printf '[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n' > /usr/local/cargo/config.toml
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
     && rustup toolchain install nightly \
@@ -86,11 +68,14 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
     && rustup target add wasm32-unknown-unknown --toolchain nightly \
     && rustup target add aarch64-unknown-linux-gnu
 
-# pkg-config wrapper for aarch64 cross-compilation
-RUN printf '#!/bin/sh\nexec env PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig PKG_CONFIG_SYSROOT_DIR=/ pkg-config "$@"\n' \
-        > /usr/local/bin/aarch64-linux-gnu-pkg-config \
-    && chmod +x /usr/local/bin/aarch64-linux-gnu-pkg-config
-ENV PKG_CONFIG_AARCH64_UNKNOWN_LINUX_GNU=aarch64-linux-gnu-pkg-config
+# ── Layer 7b: Zig + cargo-zigbuild for arm64 cross-compilation ────────
+# Zig bundles a cross-compilation toolchain, eliminating the need for
+# gcc-aarch64, arm64 apt sources, and pkg-config wrappers.
+# renovate: datasource=github-releases depName=ziglang/zig
+ARG ZIG_VERSION=0.14.1
+RUN ZIG_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
+    && curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}.tar.xz" | tar -xJ -C /opt \
+    && ln -s /opt/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}/zig /usr/local/bin/zig
 
 # ── Stage: build Rust CLI tools in an isolated layer ─────────────────────
 # cargo install leaves behind build trees in $CARGO_HOME/registry and
@@ -100,13 +85,14 @@ FROM base AS rust-tools
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo install wasm-bindgen-cli wasm-pack twiggy wasm-opt \
+    cargo install wasm-bindgen-cli wasm-pack twiggy wasm-opt cargo-zigbuild \
     && mkdir /cargo-bin \
     && cp /usr/local/cargo/bin/wasm-bindgen /cargo-bin/ \
     && cp /usr/local/cargo/bin/wasm-bindgen-test-runner /cargo-bin/ \
     && cp /usr/local/cargo/bin/wasm-pack /cargo-bin/ \
     && cp /usr/local/cargo/bin/twiggy /cargo-bin/ \
-    && cp /usr/local/cargo/bin/wasm-opt /cargo-bin/
+    && cp /usr/local/cargo/bin/wasm-opt /cargo-bin/ \
+    && cp /usr/local/cargo/bin/cargo-zigbuild /cargo-bin/
 
 # ── Final stage ──────────────────────────────────────────────────────────
 FROM base
