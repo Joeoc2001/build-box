@@ -86,7 +86,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 ENV PKG_CONFIG_ALLOW_CROSS=1 \
     PKG_CONFIG_aarch64_unknown_linux_gnu=pkg-config \
     PKG_CONFIG_PATH_aarch64_unknown_linux_gnu=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig \
-    PKG_CONFIG_SYSROOT_DIR_aarch64_unknown_linux_gnu=/
+    PKG_CONFIG_SYSROOT_DIR_aarch64_unknown_linux_gnu=/ \
+    CFLAGS_aarch64_unknown_linux_gnu=-I/usr/include/aarch64-linux-gnu \
+    CXXFLAGS_aarch64_unknown_linux_gnu=-I/usr/include/aarch64-linux-gnu \
+    BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu=--sysroot=/\ -I/usr/include/aarch64-linux-gnu
 
 # ── Layer 7b: Zig + cargo-zigbuild for arm64 cross-compilation ────────
 # Zig bundles the cross-compiler and linker, but crates that probe
