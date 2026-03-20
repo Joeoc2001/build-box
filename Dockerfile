@@ -12,12 +12,27 @@ ARG TARGETARCH
 # bump doesn't invalidate the base apt layer.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
+    if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+      dpkg --add-architecture arm64; \
+      if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
+        sed -i '/^Types:/a Architectures: amd64' /etc/apt/sources.list.d/ubuntu.sources; \
+      elif [ -f /etc/apt/sources.list ]; then \
+        sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list; \
+      fi; \
+      printf '%s\n' \
+        "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse" \
+        "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse" \
+        "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse" \
+        "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse" \
+        > /etc/apt/sources.list.d/arm64-ports.list; \
+    fi \
+    && apt-get update && apt-get install -y --no-install-recommends \
     curl wget git jq ripgrep unzip ca-certificates gnupg xdg-utils \
     build-essential g++ cmake make pkg-config clang mold lld \
     python3 python3-pip python3-venv \
     openjdk-21-jdk-headless \
-    libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev
+    libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev \
+    libssl-dev:arm64 libudev-dev:arm64
 
 # ── Layer 2: External apt repos + packages (NodeSource, Docker, GH CLI) ─
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -68,9 +83,14 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
     && rustup target add wasm32-unknown-unknown --toolchain nightly \
     && rustup target add aarch64-unknown-linux-gnu
 
+ENV PKG_CONFIG_ALLOW_CROSS=1 \
+    PKG_CONFIG_aarch64_unknown_linux_gnu=pkg-config \
+    PKG_CONFIG_PATH_aarch64_unknown_linux_gnu=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig \
+    PKG_CONFIG_SYSROOT_DIR_aarch64_unknown_linux_gnu=/
+
 # ── Layer 7b: Zig + cargo-zigbuild for arm64 cross-compilation ────────
-# Zig bundles a cross-compilation toolchain, eliminating the need for
-# gcc-aarch64, arm64 apt sources, and pkg-config wrappers.
+# Zig bundles the cross-compiler and linker, but crates that probe
+# system libraries still need arm64 pkg-config metadata from apt.
 # renovate: datasource=github-releases depName=ziglang/zig
 ARG ZIG_VERSION=0.15.1
 RUN ZIG_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
