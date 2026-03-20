@@ -118,7 +118,8 @@ RUN BIN_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
 ARG CARGO_ZIGBUILD_VERSION=0.22.1
 RUN CZ_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-gnu" || echo "x86_64-unknown-linux-gnu") \
     && curl -fsSL "https://github.com/rust-cross/cargo-zigbuild/releases/download/v${CARGO_ZIGBUILD_VERSION}/cargo-zigbuild-${CZ_ARCH}.tar.xz" \
-       | tar -xJ -C /usr/local/cargo/bin/ cargo-zigbuild
+       | tar -xJ --strip-components=1 -C /usr/local/cargo/bin/ \
+         "cargo-zigbuild-${CZ_ARCH}/cargo-zigbuild"
 
 # ── Layer 8: AWS CLI ─────────────────────────────────────────────────────
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip \
