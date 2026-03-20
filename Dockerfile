@@ -77,27 +77,48 @@ RUN ZIG_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
     && curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}.tar.xz" | tar -xJ -C /opt \
     && ln -s /opt/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}/zig /usr/local/bin/zig
 
-# ── Stage: build Rust CLI tools in an isolated layer ─────────────────────
-# cargo install leaves behind build trees in $CARGO_HOME/registry and
-# target dirs.  Building in a throwaway stage and copying only the
-# binaries keeps the final image much smaller.
+# ── Stage: build Rust CLI tools that lack pre-built binaries ─────────────
 FROM base AS rust-tools
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo install wasm-bindgen-cli wasm-pack twiggy wasm-opt cargo-zigbuild \
+    cargo install twiggy \
     && mkdir /cargo-bin \
-    && cp /usr/local/cargo/bin/wasm-bindgen /cargo-bin/ \
-    && cp /usr/local/cargo/bin/wasm-bindgen-test-runner /cargo-bin/ \
-    && cp /usr/local/cargo/bin/wasm-pack /cargo-bin/ \
-    && cp /usr/local/cargo/bin/twiggy /cargo-bin/ \
-    && cp /usr/local/cargo/bin/wasm-opt /cargo-bin/ \
-    && cp /usr/local/cargo/bin/cargo-zigbuild /cargo-bin/
+    && cp /usr/local/cargo/bin/twiggy /cargo-bin/
 
 # ── Final stage ──────────────────────────────────────────────────────────
 FROM base
 
 COPY --from=rust-tools /cargo-bin/* /usr/local/cargo/bin/
+
+# ── Pre-built Rust CLI tools (avoids slow cargo install under QEMU) ──────
+# renovate: datasource=github-releases depName=rustwasm/wasm-bindgen
+ARG WASM_BINDGEN_VERSION=0.2.114
+RUN WB_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") \
+    && curl -fsSL "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-${WB_ARCH}.tar.gz" \
+       | tar -xz --strip-components=1 -C /usr/local/cargo/bin/ \
+         "wasm-bindgen-${WASM_BINDGEN_VERSION}-${WB_ARCH}/wasm-bindgen" \
+         "wasm-bindgen-${WASM_BINDGEN_VERSION}-${WB_ARCH}/wasm-bindgen-test-runner"
+
+# renovate: datasource=github-releases depName=rustwasm/wasm-pack
+ARG WASM_PACK_VERSION=0.14.0
+RUN WP_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") \
+    && curl -fsSL "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-${WP_ARCH}.tar.gz" \
+       | tar -xz --strip-components=1 -C /usr/local/cargo/bin/ \
+         "wasm-pack-v${WASM_PACK_VERSION}-${WP_ARCH}/wasm-pack"
+
+# renovate: datasource=github-releases depName=WebAssembly/binaryen
+ARG BINARYEN_VERSION=128
+RUN BIN_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
+    && curl -fsSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-${BIN_ARCH}-linux.tar.gz" \
+       | tar -xz --strip-components=1 -C /usr/local/ \
+         "binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt"
+
+# renovate: datasource=github-releases depName=rust-cross/cargo-zigbuild
+ARG CARGO_ZIGBUILD_VERSION=0.22.1
+RUN CZ_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-gnu" || echo "x86_64-unknown-linux-gnu") \
+    && curl -fsSL "https://github.com/rust-cross/cargo-zigbuild/releases/download/v${CARGO_ZIGBUILD_VERSION}/cargo-zigbuild-${CZ_ARCH}.tar.xz" \
+       | tar -xJ -C /usr/local/cargo/bin/ cargo-zigbuild
 
 # ── Layer 8: AWS CLI ─────────────────────────────────────────────────────
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip \
