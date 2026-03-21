@@ -138,55 +138,15 @@ RUN BIN_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
          "binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt"
 
 # renovate: datasource=github-releases depName=rust-cross/cargo-zigbuild
+COPY scripts/cargo-zigbuild-wrapper.sh /tmp/cargo-zigbuild-wrapper.sh
+
 ARG CARGO_ZIGBUILD_VERSION=0.22.1
 RUN CZ_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-gnu" || echo "x86_64-unknown-linux-gnu") \
     && curl -fsSL "https://github.com/rust-cross/cargo-zigbuild/releases/download/v${CARGO_ZIGBUILD_VERSION}/cargo-zigbuild-${CZ_ARCH}.tar.xz" \
        | tar -xJ --strip-components=1 -C /usr/local/cargo/bin/ \
          "cargo-zigbuild-${CZ_ARCH}/cargo-zigbuild" \
     && mv /usr/local/cargo/bin/cargo-zigbuild /usr/local/cargo/bin/cargo-zigbuild-bin \
-    && cat <<'EOF' > /usr/local/cargo/bin/cargo-zigbuild
-#!/usr/bin/env bash
-set -euo pipefail
-
-glibc_suffix="${CARGO_ZIGBUILD_GLIBC_SUFFIX:-.2.39}"
-args=()
-expect_target=0
-
-for arg in "$@"; do
-  if [ "$expect_target" -eq 1 ]; then
-    case "$arg" in
-      aarch64-unknown-linux-gnu|x86_64-unknown-linux-gnu)
-        args+=("${arg}${glibc_suffix}")
-        ;;
-      *)
-        args+=("$arg")
-        ;;
-    esac
-    expect_target=0
-    continue
-  fi
-
-  case "$arg" in
-    --target)
-      expect_target=1
-      args+=("$arg")
-      ;;
-    --target=aarch64-unknown-linux-gnu)
-      args+=("--target=aarch64-unknown-linux-gnu${glibc_suffix}")
-      ;;
-    --target=x86_64-unknown-linux-gnu)
-      args+=("--target=x86_64-unknown-linux-gnu${glibc_suffix}")
-      ;;
-    *)
-      args+=("$arg")
-      ;;
-  esac
-done
-
-exec /usr/local/cargo/bin/cargo-zigbuild-bin "${args[@]}"
-EOF
-
-RUN chmod +x /usr/local/cargo/bin/cargo-zigbuild
+    && install -m 0755 /tmp/cargo-zigbuild-wrapper.sh /usr/local/cargo/bin/cargo-zigbuild
 
 # ── Layer 8: AWS CLI ─────────────────────────────────────────────────────
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip \
