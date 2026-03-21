@@ -185,7 +185,8 @@ done
 
 exec /usr/local/cargo/bin/cargo-zigbuild-bin "${args[@]}"
 EOF
-    && chmod +x /usr/local/cargo/bin/cargo-zigbuild
+
+RUN chmod +x /usr/local/cargo/bin/cargo-zigbuild
 
 # ── Layer 8: AWS CLI ─────────────────────────────────────────────────────
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip \
