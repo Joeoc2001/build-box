@@ -4,28 +4,24 @@ FROM ubuntu:24.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-ARG TARGETARCH
-
 # ── Layer 1: System packages (changes rarely) ───────────────────────────
 # Using --no-install-recommends to keep the layer small.
 # Split from external-repo packages so a NodeSource or Docker version
 # bump doesn't invalidate the base apt layer.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-      dpkg --add-architecture arm64; \
-      if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
-        sed -i '/^Types:/a Architectures: amd64' /etc/apt/sources.list.d/ubuntu.sources; \
-      elif [ -f /etc/apt/sources.list ]; then \
-        sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list; \
-      fi; \
-      printf '%s\n' \
-        "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse" \
-        "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse" \
-        "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse" \
-        "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse" \
-        > /etc/apt/sources.list.d/arm64-ports.list; \
-    fi \
+    dpkg --add-architecture arm64 \
+    && if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
+         sed -i '/^Types:/a Architectures: amd64' /etc/apt/sources.list.d/ubuntu.sources; \
+       elif [ -f /etc/apt/sources.list ]; then \
+         sed -i 's|^deb http|deb [arch=amd64] http|' /etc/apt/sources.list; \
+       fi \
+    && printf '%s\n' \
+       "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse" \
+       "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse" \
+       "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse" \
+       "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse" \
+       > /etc/apt/sources.list.d/arm64-ports.list \
     && apt-get update && apt-get install -y --no-install-recommends \
     curl wget git jq ripgrep unzip ca-certificates gnupg xdg-utils \
     build-essential g++ cmake make pkg-config clang mold lld \
@@ -49,23 +45,21 @@ RUN npm install -g yarn esbuild
 
 # ── Layer 4: GitLab CLI ──────────────────────────────────────────────────
 ARG GLAB_VERSION=1.89.0
-RUN GLAB_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") \
-    && curl -fsSL "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${GLAB_ARCH}.tar.gz" | tar -xz -C /tmp \
+RUN curl -fsSL "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp \
     && mv /tmp/bin/glab /usr/local/bin/ \
     && rm -rf /tmp/bin
 
 # ── Layer 5: sccache ─────────────────────────────────────────────────────
 # renovate: datasource=github-releases depName=mozilla/sccache
 ARG SCCACHE_VERSION=0.14.0
-RUN SCCACHE_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
-    && curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-${SCCACHE_ARCH}-unknown-linux-musl.tar.gz" | tar -xz -C /tmp \
-    && mv /tmp/sccache-v${SCCACHE_VERSION}-${SCCACHE_ARCH}-unknown-linux-musl/sccache /usr/local/bin/ \
+RUN curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /tmp \
+    && mv /tmp/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache /usr/local/bin/ \
     && rm -rf /tmp/sccache-*
 ENV PATH="/usr/local/bin:${PATH}"
 
 # ── Layer 6: Go ──────────────────────────────────────────────────────────
 ARG GO_VERSION=1.26.0
-RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" | tar -C /usr/local -xz
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xz
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # ── Layer 7: Rust toolchains + wasm targets ──────────────────────────────
@@ -96,9 +90,8 @@ ENV PKG_CONFIG_ALLOW_CROSS=1 \
 # system libraries still need arm64 pkg-config metadata from apt.
 # renovate: datasource=github-releases depName=ziglang/zig
 ARG ZIG_VERSION=0.15.1
-RUN ZIG_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
-    && curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}.tar.xz" | tar -xJ -C /opt \
-    && ln -s /opt/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}/zig /usr/local/bin/zig
+RUN curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" | tar -xJ -C /opt \
+    && ln -s /opt/zig-x86_64-linux-${ZIG_VERSION}/zig /usr/local/bin/zig
 
 # ── Stage: build Rust CLI tools that lack pre-built binaries ─────────────
 FROM base AS rust-tools
@@ -117,34 +110,30 @@ COPY --from=rust-tools /cargo-bin/* /usr/local/cargo/bin/
 # ── Pre-built Rust CLI tools (avoids slow cargo install under QEMU) ──────
 # renovate: datasource=github-releases depName=rustwasm/wasm-bindgen
 ARG WASM_BINDGEN_VERSION=0.2.114
-RUN WB_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") \
-    && curl -fsSL "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-${WB_ARCH}.tar.gz" \
+RUN curl -fsSL "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
        | tar -xz --strip-components=1 -C /usr/local/cargo/bin/ \
-         "wasm-bindgen-${WASM_BINDGEN_VERSION}-${WB_ARCH}/wasm-bindgen" \
-         "wasm-bindgen-${WASM_BINDGEN_VERSION}-${WB_ARCH}/wasm-bindgen-test-runner"
+         "wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl/wasm-bindgen" \
+         "wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl/wasm-bindgen-test-runner"
 
 # renovate: datasource=github-releases depName=rustwasm/wasm-pack
 ARG WASM_PACK_VERSION=0.14.0
-RUN WP_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") \
-    && curl -fsSL "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-${WP_ARCH}.tar.gz" \
+RUN curl -fsSL "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
        | tar -xz --strip-components=1 -C /usr/local/cargo/bin/ \
-         "wasm-pack-v${WASM_PACK_VERSION}-${WP_ARCH}/wasm-pack"
+         "wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl/wasm-pack"
 
 # renovate: datasource=github-releases depName=WebAssembly/binaryen
 ARG BINARYEN_VERSION=128
-RUN BIN_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
-    && curl -fsSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-${BIN_ARCH}-linux.tar.gz" \
+RUN curl -fsSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" \
        | tar -xz --strip-components=1 -C /usr/local/ \
-         "binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt"
+          "binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt"
 
 # renovate: datasource=github-releases depName=rust-cross/cargo-zigbuild
 COPY scripts/cargo-zigbuild-wrapper.sh /tmp/cargo-zigbuild-wrapper.sh
 
 ARG CARGO_ZIGBUILD_VERSION=0.22.1
-RUN CZ_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-gnu" || echo "x86_64-unknown-linux-gnu") \
-    && curl -fsSL "https://github.com/rust-cross/cargo-zigbuild/releases/download/v${CARGO_ZIGBUILD_VERSION}/cargo-zigbuild-${CZ_ARCH}.tar.xz" \
+RUN curl -fsSL "https://github.com/rust-cross/cargo-zigbuild/releases/download/v${CARGO_ZIGBUILD_VERSION}/cargo-zigbuild-x86_64-unknown-linux-gnu.tar.xz" \
        | tar -xJ --strip-components=1 -C /usr/local/cargo/bin/ \
-         "cargo-zigbuild-${CZ_ARCH}/cargo-zigbuild" \
+         "cargo-zigbuild-x86_64-unknown-linux-gnu/cargo-zigbuild" \
     && mv /usr/local/cargo/bin/cargo-zigbuild /usr/local/cargo/bin/cargo-zigbuild-bin \
     && install -m 0755 /tmp/cargo-zigbuild-wrapper.sh /usr/local/cargo/bin/cargo-zigbuild
 
