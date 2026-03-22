@@ -71,6 +71,7 @@ RUN mkdir -p /usr/local/cargo \
     && printf '[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n' > /usr/local/cargo/config.toml
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+    && rustup set auto-self-update disable \
     && rustup toolchain install nightly \
     && rustup component add rust-src --toolchain nightly \
     && rustup target add wasm32-unknown-unknown \
