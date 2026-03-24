@@ -72,14 +72,10 @@ RUN mkdir -p /usr/local/cargo \
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
     && rustup set auto-self-update disable \
-    && rustup toolchain install nightly --profile minimal \
-    && NIGHTLY_DATE="$(rustc +nightly -V | sed -n 's/.* \([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)).*/\1/p')" \
-    && rustup toolchain install "nightly-${NIGHTLY_DATE}" --profile minimal \
-    && rustup default "nightly-${NIGHTLY_DATE}" \
-    && rustup toolchain uninstall nightly \
-    && rustup component add rust-src --toolchain "nightly-${NIGHTLY_DATE}" \
+    && rustup toolchain install nightly \
+    && rustup component add rust-src --toolchain nightly \
     && rustup target add wasm32-unknown-unknown \
-    && rustup target add wasm32-unknown-unknown --toolchain "nightly-${NIGHTLY_DATE}" \
+    && rustup target add wasm32-unknown-unknown --toolchain nightly \
     && rustup target add aarch64-unknown-linux-gnu
 
 ENV PKG_CONFIG_ALLOW_CROSS=1 \
