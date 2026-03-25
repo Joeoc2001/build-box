@@ -63,6 +63,9 @@ RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # ── Layer 7: Rust toolchains + wasm targets ──────────────────────────────
+# renovate: datasource=github-releases depName=rust-lang/rust versioning=semver
+ARG RUST_STABLE_VERSION=1.94.0
+
 ENV RUSTUP_HOME="/usr/local/rustup" \
     CARGO_HOME="/usr/local/cargo"
 ENV PATH="/usr/local/cargo/bin:${PATH}"
@@ -70,12 +73,17 @@ ENV PATH="/usr/local/cargo/bin:${PATH}"
 RUN mkdir -p /usr/local/cargo \
     && printf '[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n' > /usr/local/cargo/config.toml
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_STABLE_VERSION}" \
     && rustup set auto-self-update disable \
-    && rustup toolchain install nightly \
-    && rustup component add rust-src --toolchain nightly \
+    && RUST_STABLE_DATE="$(curl -fsSL "https://static.rust-lang.org/dist/channel-rust-${RUST_STABLE_VERSION}.toml" | sed -n 's/^date = "\([0-9-]*\)"$/\1/p')" \
+    && test -n "${RUST_STABLE_DATE}" \
+    && RUST_NIGHTLY_TOOLCHAIN="nightly-${RUST_STABLE_DATE}" \
+    && RUST_HOST_TRIPLE="$(rustc +"${RUST_STABLE_VERSION}" -vV | sed -n 's/^host: //p')" \
+    && rustup toolchain install "${RUST_NIGHTLY_TOOLCHAIN}" \
+    && rustup component add rust-src --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
     && rustup target add wasm32-unknown-unknown \
-    && rustup target add wasm32-unknown-unknown --toolchain nightly \
+    && rustup target add wasm32-unknown-unknown --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
+    && rustup toolchain link pinned-nightly "${RUSTUP_HOME}/toolchains/${RUST_NIGHTLY_TOOLCHAIN}-${RUST_HOST_TRIPLE}" \
     && rustup target add aarch64-unknown-linux-gnu
 
 ENV PKG_CONFIG_ALLOW_CROSS=1 \
@@ -105,6 +113,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 
 # ── Final stage ──────────────────────────────────────────────────────────
 FROM base
+
+ENV RUSTUP_TOOLCHAIN="pinned-nightly"
 
 COPY --from=rust-tools /cargo-bin/* /usr/local/cargo/bin/
 
