@@ -43,7 +43,7 @@ NODE_MAJOR="$(curl -fsSL "https://nodejs.org/dist/index.json" | jq -r '.[0].vers
 GO_VERSION="$(curl -fsSL "https://go.dev/dl/?mode=json" | jq -r '[.[] | select(.stable == true)][0].version' | sed -E 's/^go//')"
 GLAB_VERSION="$(strip_prefix "$(gitlab_latest_tag "gitlab-org/cli")" "v")"
 SCCACHE_VERSION="$(strip_prefix "$(github_latest_tag "mozilla/sccache")" "v")"
-RUST_STABLE_VERSION="$(curl -fsSL "https://static.rust-lang.org/dist/channel-rust-stable.toml" | sed -nE 's/^version = "([0-9]+\.[0-9]+\.[0-9]+).*/\1/p; q')"
+RUST_STABLE_VERSION="$(curl -fsSL "https://static.rust-lang.org/dist/channel-rust-stable.toml" | sed -nE 's/^version = "([0-9]+\.[0-9]+\.[0-9]+).*/\1/p')"
 ZIG_VERSION="$(strip_prefix "$(github_latest_tag "ziglang/zig")" "v")"
 WASM_BINDGEN_VERSION="$(strip_prefix "$(github_latest_tag "rustwasm/wasm-bindgen")" "v")"
 WASM_PACK_VERSION="$(strip_prefix "$(github_latest_tag "rustwasm/wasm-pack")" "v")"
