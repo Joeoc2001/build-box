@@ -82,6 +82,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
     && rustup component add rust-src --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
     && rustup target add wasm32-unknown-unknown \
     && rustup target add wasm32-unknown-unknown --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
+    && rustup target add aarch64-unknown-linux-gnu --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
     && rustup toolchain link pinned-nightly "${RUSTUP_HOME}/toolchains/${RUST_NIGHTLY_TOOLCHAIN}-${RUST_HOST_TRIPLE}" \
     && rustup target add aarch64-unknown-linux-gnu
 
