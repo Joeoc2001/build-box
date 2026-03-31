@@ -42,7 +42,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get update && apt-get install -y --no-install-recommends nodejs docker-ce-cli gh
 
 # ── Layer 3: npm globals ─────────────────────────────────────────────────
-RUN npm install -g yarn esbuild
+RUN npm install -g yarn esbuild typescript
 
 # ── Layer 4: GitLab CLI ──────────────────────────────────────────────────
 ARG GLAB_VERSION
