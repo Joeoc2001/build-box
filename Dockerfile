@@ -106,9 +106,9 @@ FROM base AS rust-tools
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo install twiggy \
+    cargo install twiggy cargo-sweep \
     && mkdir /cargo-bin \
-    && cp /usr/local/cargo/bin/twiggy /cargo-bin/
+    && cp /usr/local/cargo/bin/twiggy /usr/local/cargo/bin/cargo-sweep /cargo-bin/
 
 # ── Final stage ──────────────────────────────────────────────────────────
 FROM base
