@@ -35,7 +35,7 @@ jobs:
 
       - name: Build and push environment image
         run: |
-          DOCKER_BUILD_USE_BUILDX=1 scripts/build-with-latest-versions.sh \
+          scripts/build-with-latest-versions.sh \
             --platform linux/amd64 \
             --push \
             --cache-from type=gha,scope=env \

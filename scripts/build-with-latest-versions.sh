@@ -2,8 +2,6 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DOCKERFILE_PATH="${DOCKERFILE_PATH:-${REPO_ROOT}/Dockerfile}"
-BUILD_CONTEXT="${BUILD_CONTEXT:-${REPO_ROOT}}"
 
 require_cmd() {
   local cmd="$1"
@@ -35,8 +33,6 @@ require_cmd curl
 require_cmd jq
 require_cmd docker
 
-DOCKER_BUILD_USE_BUILDX="${DOCKER_BUILD_USE_BUILDX:-0}"
-
 echo "Resolving latest tool versions..."
 
 NODE_MAJOR="$(curl -fsSL "https://nodejs.org/dist/index.json" | jq -r '.[0].version' | sed -E 's/^v([0-9]+).*/\1/')"
@@ -58,7 +54,6 @@ RUST_STABLE_VERSION="$(
     '
 )"
 ZIG_VERSION="$(strip_prefix "$(github_latest_tag "ziglang/zig")" "v")"
-WASM_BINDGEN_VERSION="$(strip_prefix "$(github_latest_tag "rustwasm/wasm-bindgen")" "v")"
 WASM_PACK_VERSION="$(strip_prefix "$(github_latest_tag "rustwasm/wasm-pack")" "v")"
 BINARYEN_VERSION="$(strip_prefix "$(github_latest_tag "WebAssembly/binaryen")" "version_")"
 CARGO_ZIGBUILD_VERSION="$(strip_prefix "$(github_latest_tag "rust-cross/cargo-zigbuild")" "v")"
@@ -70,7 +65,6 @@ for value in \
   "${SCCACHE_VERSION}" \
   "${RUST_STABLE_VERSION}" \
   "${ZIG_VERSION}" \
-  "${WASM_BINDGEN_VERSION}" \
   "${WASM_PACK_VERSION}" \
   "${BINARYEN_VERSION}" \
   "${CARGO_ZIGBUILD_VERSION}"; do
@@ -87,39 +81,20 @@ echo "  GLAB_VERSION=${GLAB_VERSION}"
 echo "  SCCACHE_VERSION=${SCCACHE_VERSION}"
 echo "  RUST_STABLE_VERSION=${RUST_STABLE_VERSION}"
 echo "  ZIG_VERSION=${ZIG_VERSION}"
-echo "  WASM_BINDGEN_VERSION=${WASM_BINDGEN_VERSION}"
 echo "  WASM_PACK_VERSION=${WASM_PACK_VERSION}"
 echo "  BINARYEN_VERSION=${BINARYEN_VERSION}"
 echo "  CARGO_ZIGBUILD_VERSION=${CARGO_ZIGBUILD_VERSION}"
 
-if [ "${DOCKER_BUILD_USE_BUILDX}" = "1" ]; then
-  docker buildx build \
-    --file "${DOCKERFILE_PATH}" \
-    --build-arg "NODE_MAJOR=${NODE_MAJOR}" \
-    --build-arg "GO_VERSION=${GO_VERSION}" \
-    --build-arg "GLAB_VERSION=${GLAB_VERSION}" \
-    --build-arg "SCCACHE_VERSION=${SCCACHE_VERSION}" \
-    --build-arg "RUST_STABLE_VERSION=${RUST_STABLE_VERSION}" \
-    --build-arg "ZIG_VERSION=${ZIG_VERSION}" \
-    --build-arg "WASM_BINDGEN_VERSION=${WASM_BINDGEN_VERSION}" \
-    --build-arg "WASM_PACK_VERSION=${WASM_PACK_VERSION}" \
-    --build-arg "BINARYEN_VERSION=${BINARYEN_VERSION}" \
-    --build-arg "CARGO_ZIGBUILD_VERSION=${CARGO_ZIGBUILD_VERSION}" \
-    "$@" \
-    "${BUILD_CONTEXT}"
-else
-  docker build \
-  --file "${DOCKERFILE_PATH}" \
+docker buildx build \
+  --file "${REPO_ROOT}/Dockerfile" \
   --build-arg "NODE_MAJOR=${NODE_MAJOR}" \
   --build-arg "GO_VERSION=${GO_VERSION}" \
   --build-arg "GLAB_VERSION=${GLAB_VERSION}" \
   --build-arg "SCCACHE_VERSION=${SCCACHE_VERSION}" \
   --build-arg "RUST_STABLE_VERSION=${RUST_STABLE_VERSION}" \
   --build-arg "ZIG_VERSION=${ZIG_VERSION}" \
-  --build-arg "WASM_BINDGEN_VERSION=${WASM_BINDGEN_VERSION}" \
   --build-arg "WASM_PACK_VERSION=${WASM_PACK_VERSION}" \
   --build-arg "BINARYEN_VERSION=${BINARYEN_VERSION}" \
   --build-arg "CARGO_ZIGBUILD_VERSION=${CARGO_ZIGBUILD_VERSION}" \
   "$@" \
-  "${BUILD_CONTEXT}"
-fi
+  "${REPO_ROOT}"

@@ -106,21 +106,14 @@ FROM base AS rust-tools
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo install twiggy cargo-sweep \
+    cargo install twiggy cargo-sweep wasm-bindgen-cli \
     && mkdir /cargo-bin \
-    && cp /usr/local/cargo/bin/twiggy /usr/local/cargo/bin/cargo-sweep /cargo-bin/
+    && cp /usr/local/cargo/bin/twiggy /usr/local/cargo/bin/cargo-sweep /usr/local/cargo/bin/wasm-bindgen /usr/local/cargo/bin/wasm-bindgen-test-runner /usr/local/cargo/bin/wasm2es6js /cargo-bin/
 
 # ── Final stage ──────────────────────────────────────────────────────────
 FROM base
 
 COPY --from=rust-tools /cargo-bin/* /usr/local/cargo/bin/
-
-# ── Pre-built Rust CLI tools (avoids slow cargo install under QEMU) ──────
-ARG WASM_BINDGEN_VERSION
-RUN curl -fsSL "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
-       | tar -xz --strip-components=1 -C /usr/local/cargo/bin/ \
-         "wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl/wasm-bindgen" \
-         "wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl/wasm-bindgen-test-runner"
 
 ARG WASM_PACK_VERSION
 RUN curl -fsSL "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
