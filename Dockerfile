@@ -42,7 +42,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get update && apt-get install -y --no-install-recommends nodejs docker-ce-cli gh
 
 # ── Layer 3: npm globals ─────────────────────────────────────────────────
-RUN npm install -g yarn esbuild typescript prettier
+RUN npm install -g yarn esbuild typescript prettier playwright
+
+# ── Layer 3b: Playwright browsers ─────────────────────────────────────────
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN playwright install --with-deps chromium
 
 # ── Layer 4: GitLab CLI ──────────────────────────────────────────────────
 ARG GLAB_VERSION
