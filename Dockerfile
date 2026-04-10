@@ -42,7 +42,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get update && apt-get install -y --no-install-recommends nodejs docker-ce-cli gh
 
 # ── Layer 3: npm globals ─────────────────────────────────────────────────
-RUN npm install -g yarn esbuild typescript prettier playwright
+RUN npm install -g yarn esbuild typescript prettier playwright \
+    && ln -sfn /usr/lib/node_modules /node_modules
 
 # ── Layer 3b: Playwright browsers ─────────────────────────────────────────
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
