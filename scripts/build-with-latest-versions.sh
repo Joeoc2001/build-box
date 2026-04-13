@@ -22,6 +22,15 @@ github_latest_tag() {
   curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name'
 }
 
+nvidia_latest_cuda_series() {
+  curl -fsSL "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/Packages.gz" |
+    gzip -dc |
+    awk '/^Package: cuda-toolkit-[0-9]+-[0-9]+$/ { print $2 }' |
+    sed -E 's/^cuda-toolkit-//' |
+    sort -V |
+    tail -n1
+}
+
 gitlab_latest_tag() {
   local project_path="$1"
   local encoded
@@ -32,6 +41,7 @@ gitlab_latest_tag() {
 require_cmd curl
 require_cmd jq
 require_cmd docker
+require_cmd gzip
 
 echo "Resolving latest tool versions..."
 
@@ -57,6 +67,7 @@ ZIG_VERSION="$(strip_prefix "$(github_latest_tag "ziglang/zig")" "v")"
 WASM_PACK_VERSION="$(strip_prefix "$(github_latest_tag "rustwasm/wasm-pack")" "v")"
 BINARYEN_VERSION="$(strip_prefix "$(github_latest_tag "WebAssembly/binaryen")" "version_")"
 CARGO_ZIGBUILD_VERSION="$(strip_prefix "$(github_latest_tag "rust-cross/cargo-zigbuild")" "v")"
+CUDA_VERSION="$(nvidia_latest_cuda_series)"
 
 for value in \
   "${NODE_MAJOR}" \
@@ -67,7 +78,8 @@ for value in \
   "${ZIG_VERSION}" \
   "${WASM_PACK_VERSION}" \
   "${BINARYEN_VERSION}" \
-  "${CARGO_ZIGBUILD_VERSION}"; do
+  "${CARGO_ZIGBUILD_VERSION}" \
+  "${CUDA_VERSION}"; do
   if [ -z "${value}" ] || [ "${value}" = "null" ]; then
     echo "failed to resolve one or more versions" >&2
     exit 1
@@ -84,6 +96,7 @@ echo "  ZIG_VERSION=${ZIG_VERSION}"
 echo "  WASM_PACK_VERSION=${WASM_PACK_VERSION}"
 echo "  BINARYEN_VERSION=${BINARYEN_VERSION}"
 echo "  CARGO_ZIGBUILD_VERSION=${CARGO_ZIGBUILD_VERSION}"
+echo "  CUDA_VERSION=${CUDA_VERSION}"
 
 docker buildx build \
   --file "${REPO_ROOT}/Dockerfile" \
@@ -96,5 +109,6 @@ docker buildx build \
   --build-arg "WASM_PACK_VERSION=${WASM_PACK_VERSION}" \
   --build-arg "BINARYEN_VERSION=${BINARYEN_VERSION}" \
   --build-arg "CARGO_ZIGBUILD_VERSION=${CARGO_ZIGBUILD_VERSION}" \
+  --build-arg "CUDA_VERSION=${CUDA_VERSION}" \
   "$@" \
   "${REPO_ROOT}"
