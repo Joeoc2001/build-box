@@ -41,6 +41,26 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
     && apt-get update && apt-get install -y --no-install-recommends nodejs docker-ce-cli gh
 
+# ── Layer 2b: NVIDIA CUDA userspace for GPU passthrough ──────────────────
+# Kernel drivers are provided by the host and mounted by nvidia-container-runtime.
+ARG CUDA_VERSION=12-6
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    wget -qO /tmp/cuda-keyring.deb "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb" \
+    && dpkg -i /tmp/cuda-keyring.deb \
+    && rm /tmp/cuda-keyring.deb \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    "cuda-toolkit-${CUDA_VERSION}" \
+    "cuda-compat-${CUDA_VERSION}" \
+    && CUDA_DOTTED="$(printf '%s' "${CUDA_VERSION}" | tr '-' '.')" \
+    && ln -sfn "/usr/local/cuda-${CUDA_DOTTED}" /usr/local/cuda
+
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH="${CUDA_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${CUDA_HOME}/compat:${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}"
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
 # ── Layer 3: npm globals ─────────────────────────────────────────────────
 RUN npm install -g yarn esbuild typescript prettier playwright \
     && ln -sfn /usr/lib/node_modules /node_modules
