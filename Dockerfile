@@ -27,8 +27,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     build-essential g++ cmake make pkg-config clang mold lld \
     python3 python3-jinja2 python3-pip python3-venv \
     openjdk-21-jdk-headless \
-    libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev \
-    libssl-dev:arm64 libudev-dev:arm64
+    libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev libwayland-dev \
+    libssl-dev:arm64 libudev-dev:arm64 libwayland-dev:arm64
 
 # ── Layer 2: External apt repos + packages (NodeSource, Docker, GH CLI) ─
 ARG NODE_MAJOR
