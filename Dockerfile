@@ -132,9 +132,9 @@ FROM base AS rust-tools
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo install twiggy cargo-sweep wasm-bindgen-cli \
+    cargo install twiggy cargo-sweep wasm-bindgen-cli cargo-insta \
     && mkdir /cargo-bin \
-    && cp /usr/local/cargo/bin/twiggy /usr/local/cargo/bin/cargo-sweep /usr/local/cargo/bin/wasm-bindgen /usr/local/cargo/bin/wasm-bindgen-test-runner /usr/local/cargo/bin/wasm2es6js /cargo-bin/
+    && cp /usr/local/cargo/bin/twiggy /usr/local/cargo/bin/cargo-sweep /usr/local/cargo/bin/cargo-insta /usr/local/cargo/bin/wasm-bindgen /usr/local/cargo/bin/wasm-bindgen-test-runner /usr/local/cargo/bin/wasm2es6js /cargo-bin/
 
 # ── Final stage ──────────────────────────────────────────────────────────
 FROM base
