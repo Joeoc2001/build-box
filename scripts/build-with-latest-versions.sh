@@ -68,6 +68,7 @@ WASM_PACK_VERSION="$(strip_prefix "$(github_latest_tag "rustwasm/wasm-pack")" "v
 BINARYEN_VERSION="$(strip_prefix "$(github_latest_tag "WebAssembly/binaryen")" "version_")"
 CARGO_ZIGBUILD_VERSION="$(strip_prefix "$(github_latest_tag "rust-cross/cargo-zigbuild")" "v")"
 CUDA_VERSION="$(nvidia_latest_cuda_series)"
+KANIKO_VERSION="$(strip_prefix "$(github_latest_tag "GoogleContainerTools/kaniko")" "v")"
 
 for value in \
   "${NODE_MAJOR}" \
@@ -79,7 +80,8 @@ for value in \
   "${WASM_PACK_VERSION}" \
   "${BINARYEN_VERSION}" \
   "${CARGO_ZIGBUILD_VERSION}" \
-  "${CUDA_VERSION}"; do
+  "${CUDA_VERSION}" \
+  "${KANIKO_VERSION}"; do
   if [ -z "${value}" ] || [ "${value}" = "null" ]; then
     echo "failed to resolve one or more versions" >&2
     exit 1
@@ -97,6 +99,7 @@ echo "  WASM_PACK_VERSION=${WASM_PACK_VERSION}"
 echo "  BINARYEN_VERSION=${BINARYEN_VERSION}"
 echo "  CARGO_ZIGBUILD_VERSION=${CARGO_ZIGBUILD_VERSION}"
 echo "  CUDA_VERSION=${CUDA_VERSION}"
+echo "  KANIKO_VERSION=${KANIKO_VERSION}"
 
 docker buildx build \
   --file "${REPO_ROOT}/Dockerfile" \
@@ -110,5 +113,6 @@ docker buildx build \
   --build-arg "BINARYEN_VERSION=${BINARYEN_VERSION}" \
   --build-arg "CARGO_ZIGBUILD_VERSION=${CARGO_ZIGBUILD_VERSION}" \
   --build-arg "CUDA_VERSION=${CUDA_VERSION}" \
+  --build-arg "KANIKO_VERSION=${KANIKO_VERSION}" \
   "$@" \
   "${REPO_ROOT}"
