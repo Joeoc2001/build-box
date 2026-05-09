@@ -110,7 +110,9 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
     && rustup target add wasm32-unknown-unknown --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
     && rustup target add aarch64-unknown-linux-gnu --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
     && rustup target add aarch64-unknown-linux-musl --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
-    && rustup toolchain link pinned-nightly "${RUSTUP_HOME}/toolchains/${RUST_NIGHTLY_TOOLCHAIN}-${RUST_HOST_TRIPLE}"
+    && rustup toolchain link pinned-nightly "${RUSTUP_HOME}/toolchains/${RUST_NIGHTLY_TOOLCHAIN}-${RUST_HOST_TRIPLE}" \
+    && DYNLINT_DATE="2025-09-18" \
+    && rustup toolchain install "nightly-${RUST_STABLE_DATE}" -c rust-src -c rustc-dev -c llvm-tools-preview
 
 ENV RUSTUP_TOOLCHAIN="pinned-nightly"
 
