@@ -1,7 +1,5 @@
 # syntax=docker/dockerfile:1
 
-ARG KANIKO_VERSION=1.23.2
-
 FROM ubuntu:24.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -140,14 +138,10 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     && mkdir /cargo-bin \
     && cp /usr/local/cargo/bin/twiggy /usr/local/cargo/bin/cargo-sweep /usr/local/cargo/bin/cargo-insta /usr/local/cargo/bin/wasm-bindgen /usr/local/cargo/bin/wasm-bindgen-test-runner /usr/local/cargo/bin/wasm2es6js /usr/local/cargo/bin/cargo-dylint /usr/local/cargo/bin/dylint-link /cargo-bin/
 
-# ── Stage: Kaniko executor ───────────────────────────────────────────────
-FROM gcr.io/kaniko-project/executor:v${KANIKO_VERSION}-debug AS kaniko
-
 # ── Final stage ──────────────────────────────────────────────────────────
 FROM base
 
 COPY --from=rust-tools /cargo-bin/* /usr/local/cargo/bin/
-COPY --from=kaniko /kaniko/executor /usr/local/bin/kaniko
 
 ARG WASM_PACK_VERSION
 RUN curl -fsSL "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
