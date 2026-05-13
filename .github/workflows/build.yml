@@ -9,83 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-base:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set image names
-        run: |
-          REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
-          echo "APP_IMAGE=ghcr.io/${REPO}" >> $GITHUB_ENV
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and cache base stage
-        run: |
-          scripts/build-with-latest-versions.sh \
-            --target base \
-            --platform linux/amd64 \
-            --cache-from type=gha,scope=base \
-            --cache-from type=registry,ref="${APP_IMAGE}:buildcache-base" \
-            --cache-to type=gha,mode=max,scope=base \
-            --cache-to type=registry,ref="${APP_IMAGE}:buildcache-base",mode=max
-
-  build-rust-tools:
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-    needs: build-base
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set image names
-        run: |
-          REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
-          echo "APP_IMAGE=ghcr.io/${REPO}" >> $GITHUB_ENV
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and cache rust-tools stage
-        run: |
-          scripts/build-with-latest-versions.sh \
-            --target rust-tools \
-            --platform linux/amd64 \
-            --cache-from type=gha,scope=base \
-            --cache-from type=registry,ref="${APP_IMAGE}:buildcache-base" \
-            --cache-from type=gha,scope=rust-tools \
-            --cache-from type=registry,ref="${APP_IMAGE}:buildcache-rust-tools" \
-            --cache-to type=gha,mode=max,scope=rust-tools \
-            --cache-to type=registry,ref="${APP_IMAGE}:buildcache-rust-tools",mode=max
-
-  build-final:
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-    needs: [build-base, build-rust-tools]
     permissions:
       contents: read
       packages: write
@@ -113,13 +38,7 @@ jobs:
           scripts/build-with-latest-versions.sh \
             --platform linux/amd64 \
             --push \
-            --cache-from type=gha,scope=base \
-            --cache-from type=registry,ref="${APP_IMAGE}:buildcache-base" \
-            --cache-from type=gha,scope=rust-tools \
-            --cache-from type=registry,ref="${APP_IMAGE}:buildcache-rust-tools" \
             --cache-from type=gha,scope=env \
-            --cache-from type=registry,ref="${APP_IMAGE}:buildcache-env" \
             --cache-to type=gha,mode=max,scope=env \
-            --cache-to type=registry,ref="${APP_IMAGE}:buildcache-env",mode=max \
             --tag "${APP_IMAGE}:latest" \
             --tag "${APP_IMAGE}:${GITHUB_SHA}"
