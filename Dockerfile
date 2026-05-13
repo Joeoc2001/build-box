@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1
 
+ARG PLAYWRIGHT_VERSION=1.59.1
+FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble AS playwright-browsers
+
 FROM ubuntu:24.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# ── Layer 1: System packages (changes rarely) ───────────────────────────
+# -- Layer 1: System packages (changes rarely) --------------------------
 # Using --no-install-recommends to keep the layer small.
 # Split from external-repo packages so a NodeSource or Docker version
 # bump doesn't invalidate the base apt layer.
@@ -30,7 +33,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libssl-dev libwayland-dev \
     libssl-dev:arm64 libudev-dev:arm64 libwayland-dev:arm64
 
-# ── Layer 2: External apt repos + packages (NodeSource, Docker, GH CLI) ─
+# -- Layer 2: External apt repos + packages (NodeSource, Docker, GH CLI) -
 ARG NODE_MAJOR
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -41,7 +44,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
     && apt-get update && apt-get install -y --no-install-recommends nodejs docker-ce-cli gh
 
-# ── Layer 2b: NVIDIA CUDA userspace for GPU passthrough ──────────────────
+# -- Layer 2b: NVIDIA CUDA userspace for GPU passthrough -----------------
 # Kernel drivers are provided by the host and mounted by nvidia-container-runtime.
 ARG CUDA_VERSION=12-6
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -61,33 +64,40 @@ ENV LD_LIBRARY_PATH="${CUDA_HOME}/compat:${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}"
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# ── Layer 3: npm globals ─────────────────────────────────────────────────
-RUN npm install -g yarn esbuild typescript prettier playwright \
+# -- Layer 3: npm globals ------------------------------------------------
+ARG PLAYWRIGHT_VERSION=1.59.1
+RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" yarn esbuild typescript prettier \
     && ln -sfn /usr/lib/node_modules /node_modules
 
-# ── Layer 3b: Playwright browsers ─────────────────────────────────────────
+# -- Layer 3b: Playwright browsers ---------------------------------------
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN playwright install --with-deps chromium
+COPY --from=playwright-browsers /ms-playwright/ /ms-playwright/
 
-# ── Layer 4: GitLab CLI ──────────────────────────────────────────────────
+# -- Layer 4: GitLab CLI -------------------------------------------------
 ARG GLAB_VERSION
 RUN curl -fsSL "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp \
     && mv /tmp/bin/glab /usr/local/bin/ \
     && rm -rf /tmp/bin
 
-# ── Layer 5: sccache ─────────────────────────────────────────────────────
+# -- Layer 5: sccache ----------------------------------------------------
 ARG SCCACHE_VERSION
 RUN curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /tmp \
     && mv /tmp/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache /usr/local/bin/ \
     && rm -rf /tmp/sccache-*
+
+# -- Layer 5b: crane -----------------------------------------------------
+ARG CRANE_VERSION
+RUN curl -fsSL "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" \
+    | tar -xz -C /usr/local/bin crane
+
 ENV PATH="/usr/local/bin:${PATH}"
 
-# ── Layer 6: Go ──────────────────────────────────────────────────────────
+# -- Layer 6: Go ---------------------------------------------------------
 ARG GO_VERSION
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xz
 ENV PATH="/usr/local/go/bin:${PATH}"
 
-# ── Layer 7: Rust toolchains + wasm targets ──────────────────────────────
+# -- Layer 7: Rust toolchains + wasm targets -----------------------------
 ARG RUST_STABLE_VERSION
 
 ENV RUSTUP_HOME="/usr/local/rustup" \
@@ -122,14 +132,14 @@ ENV PKG_CONFIG_ALLOW_CROSS=1 \
     CXXFLAGS_aarch64_unknown_linux_gnu=-I/usr/include/aarch64-linux-gnu \
     BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu=--sysroot=/\ -I/usr/include/aarch64-linux-gnu
 
-# ── Layer 7b: Zig + cargo-zigbuild for arm64 cross-compilation ────────
+# -- Layer 7b: Zig + cargo-zigbuild for arm64 cross-compilation ----------
 # Zig bundles the cross-compiler and linker, but crates that probe
 # system libraries still need arm64 pkg-config metadata from apt.
 ARG ZIG_VERSION
 RUN curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" | tar -xJ -C /opt \
     && ln -s /opt/zig-x86_64-linux-${ZIG_VERSION}/zig /usr/local/bin/zig
 
-# ── Stage: build Rust CLI tools that lack pre-built binaries ─────────────
+# -- Stage: build Rust CLI tools that lack pre-built binaries ------------
 FROM base AS rust-tools
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
@@ -138,7 +148,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     && mkdir /cargo-bin \
     && cp /usr/local/cargo/bin/twiggy /usr/local/cargo/bin/cargo-sweep /usr/local/cargo/bin/cargo-insta /usr/local/cargo/bin/wasm-bindgen /usr/local/cargo/bin/wasm-bindgen-test-runner /usr/local/cargo/bin/wasm2es6js /usr/local/cargo/bin/cargo-dylint /usr/local/cargo/bin/dylint-link /cargo-bin/
 
-# ── Final stage ──────────────────────────────────────────────────────────
+# -- Final stage ----------------------------------------------------------
 FROM base
 
 COPY --from=rust-tools /cargo-bin/* /usr/local/cargo/bin/
@@ -162,7 +172,7 @@ RUN curl -fsSL "https://github.com/rust-cross/cargo-zigbuild/releases/download/v
     && mv /usr/local/cargo/bin/cargo-zigbuild /usr/local/cargo/bin/cargo-zigbuild-bin \
     && install -m 0755 /tmp/cargo-zigbuild-wrapper.sh /usr/local/cargo/bin/cargo-zigbuild
 
-# ── Layer 8: AWS CLI ─────────────────────────────────────────────────────
+# -- Layer 8: AWS CLI ----------------------------------------------------
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip \
     && unzip -q /tmp/awscliv2.zip -d /tmp \
     && /tmp/aws/install \
