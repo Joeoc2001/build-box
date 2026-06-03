@@ -69,6 +69,9 @@ ARG PLAYWRIGHT_VERSION=1.59.1
 RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" yarn esbuild typescript prettier \
     && ln -sfn /usr/lib/node_modules /node_modules
 
+# Install full Playwright OS dependencies (Chromium/Firefox/WebKit).
+RUN playwright install-deps
+
 # -- Layer 3b: Playwright browsers ---------------------------------------
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=playwright-browsers /ms-playwright/ /ms-playwright/
