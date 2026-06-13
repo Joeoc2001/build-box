@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
        "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse" \
        > /etc/apt/sources.list.d/arm64-ports.list \
     && apt-get update && apt-get install -y --no-install-recommends \
-    curl wget git jq ripgrep unzip ca-certificates gnupg xdg-utils \
+    curl wget git jq ripgrep unzip ca-certificates gnupg xdg-utils ffmpeg \
     build-essential g++ cmake make pkg-config clang mold lld \
     python3 python3-jinja2 python3-pip python3-venv \
     openjdk-21-jdk-headless \
