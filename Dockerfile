@@ -122,8 +122,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
     && rustup target add aarch64-unknown-linux-gnu --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
     && rustup target add aarch64-unknown-linux-musl --toolchain "${RUST_NIGHTLY_TOOLCHAIN}" \
     && rustup toolchain link pinned-nightly "${RUSTUP_HOME}/toolchains/${RUST_NIGHTLY_TOOLCHAIN}-${RUST_HOST_TRIPLE}" \
-    && DYNLINT_DATE="2025-09-18" \
-    && rustup toolchain install "nightly-${RUST_STABLE_DATE}" -c rust-src -c rustc-dev -c llvm-tools-preview
+    && DYNLINT_DATE="2026-05-28" \
+    && rustup toolchain install "nightly-${DYNLINT_DATE}" -c rust-src -c rustc-dev -c llvm-tools-preview
 
 ENV RUSTUP_TOOLCHAIN="pinned-nightly"
 
@@ -147,7 +147,7 @@ FROM base AS rust-tools
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo install twiggy cargo-sweep wasm-bindgen-cli cargo-insta cargo-dylint dylint-link \
+    cargo install twiggy cargo-sweep wasm-bindgen-cli cargo-insta cargo-dylint@6.0.3 dylint-link@6.0.3 \
     && mkdir /cargo-bin \
     && cp /usr/local/cargo/bin/twiggy /usr/local/cargo/bin/cargo-sweep /usr/local/cargo/bin/cargo-insta /usr/local/cargo/bin/wasm-bindgen /usr/local/cargo/bin/wasm-bindgen-test-runner /usr/local/cargo/bin/wasm2es6js /usr/local/cargo/bin/cargo-dylint /usr/local/cargo/bin/dylint-link /cargo-bin/
 
