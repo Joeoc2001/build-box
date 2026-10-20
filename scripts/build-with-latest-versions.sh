@@ -28,6 +28,11 @@ github_latest_tag() {
   curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name'
 }
 
+crates_latest_version() {
+  local crate="$1"
+  curl -fsSL -A "build-box (https://github.com/joeoc2001/build-box)" "https://crates.io/api/v1/crates/${crate}" | jq -r '.crate.max_stable_version'
+}
+
 nvidia_latest_cuda_series() {
   curl -fsSL "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/Packages.gz" |
     gzip -dc |
@@ -89,6 +94,7 @@ ZIG_VERSION="$(strip_prefix "$(github_latest_tag "ziglang/zig")" "v")"
 WASM_PACK_VERSION="$(strip_prefix "$(github_latest_tag "rustwasm/wasm-pack")" "v")"
 BINARYEN_VERSION="$(strip_prefix "$(github_latest_tag "WebAssembly/binaryen")" "version_")"
 CARGO_ZIGBUILD_VERSION="$(strip_prefix "$(github_latest_tag "rust-cross/cargo-zigbuild")" "v")"
+CARGO_NEXTEST_VERSION="$(crates_latest_version "cargo-nextest")"
 CUDA_VERSION="$(nvidia_latest_cuda_series)"
 PLAYWRIGHT_VERSION="$(mcr_latest_playwright_noble_version)"
 
@@ -103,6 +109,7 @@ for value in \
   "${WASM_PACK_VERSION}" \
   "${BINARYEN_VERSION}" \
   "${CARGO_ZIGBUILD_VERSION}" \
+  "${CARGO_NEXTEST_VERSION}" \
   "${CUDA_VERSION}" \
   "${PLAYWRIGHT_VERSION}"; do
   if [ -z "${value}" ] || [ "${value}" = "null" ]; then
@@ -122,6 +129,7 @@ echo "  ZIG_VERSION=${ZIG_VERSION}"
 echo "  WASM_PACK_VERSION=${WASM_PACK_VERSION}"
 echo "  BINARYEN_VERSION=${BINARYEN_VERSION}"
 echo "  CARGO_ZIGBUILD_VERSION=${CARGO_ZIGBUILD_VERSION}"
+echo "  CARGO_NEXTEST_VERSION=${CARGO_NEXTEST_VERSION}"
 echo "  CUDA_VERSION=${CUDA_VERSION}"
 echo "  PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION}"
 
@@ -137,6 +145,7 @@ docker buildx build \
   --build-arg "WASM_PACK_VERSION=${WASM_PACK_VERSION}" \
   --build-arg "BINARYEN_VERSION=${BINARYEN_VERSION}" \
   --build-arg "CARGO_ZIGBUILD_VERSION=${CARGO_ZIGBUILD_VERSION}" \
+  --build-arg "CARGO_NEXTEST_VERSION=${CARGO_NEXTEST_VERSION}" \
   --build-arg "CUDA_VERSION=${CUDA_VERSION}" \
   --build-arg "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION}" \
   "$@" \
