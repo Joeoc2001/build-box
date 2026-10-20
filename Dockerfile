@@ -175,6 +175,10 @@ RUN curl -fsSL "https://github.com/rust-cross/cargo-zigbuild/releases/download/v
     && mv /usr/local/cargo/bin/cargo-zigbuild /usr/local/cargo/bin/cargo-zigbuild-bin \
     && install -m 0755 /tmp/cargo-zigbuild-wrapper.sh /usr/local/cargo/bin/cargo-zigbuild
 
+ARG CARGO_NEXTEST_VERSION
+RUN curl -fsSL "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${CARGO_NEXTEST_VERSION}/cargo-nextest-${CARGO_NEXTEST_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+       | tar -xz -C /usr/local/cargo/bin/ cargo-nextest
+
 # -- Layer 8: AWS CLI ----------------------------------------------------
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip \
     && unzip -q /tmp/awscliv2.zip -d /tmp \
