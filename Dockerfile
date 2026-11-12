@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG PLAYWRIGHT_VERSION=1.59.1
+ARG PLAYWRIGHT_VERSION=1.65.0
 FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble AS playwright-browsers
 
 FROM ubuntu:24.04 AS base
@@ -64,9 +64,11 @@ ENV LD_LIBRARY_PATH="${CUDA_HOME}/compat:${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}"
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# -- Layer 3: npm globals ------------------------------------------------
-ARG PLAYWRIGHT_VERSION=1.59.1
-RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" yarn esbuild typescript prettier \
+# -- Layer 3: Playwright CLI ---------------------------------------------
+# Other npm globals are installed in the final stage so that frequent
+# releases of those packages don't invalidate every layer below this one.
+ARG PLAYWRIGHT_VERSION
+RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" \
     && ln -sfn /usr/lib/node_modules /node_modules
 
 # Install full Playwright OS dependencies (Chromium/Firefox/WebKit).
@@ -145,9 +147,17 @@ RUN curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${Z
 # -- Stage: build Rust CLI tools that lack pre-built binaries ------------
 FROM base AS rust-tools
 
+# Versions are resolved by scripts/build-with-latest-versions.sh so this
+# layer rebuilds whenever any of these crates publishes a new release.
+# cargo-dylint/dylint-link stay pinned: they must match the DYNLINT_DATE
+# nightly installed above (see the lint library's dylint_linting version).
+ARG TWIGGY_VERSION
+ARG CARGO_SWEEP_VERSION
+ARG WASM_BINDGEN_VERSION
+ARG CARGO_INSTA_VERSION
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo install twiggy cargo-sweep wasm-bindgen-cli cargo-insta cargo-dylint@6.0.3 dylint-link@6.0.3 \
+    cargo install "twiggy@${TWIGGY_VERSION}" "cargo-sweep@${CARGO_SWEEP_VERSION}" "wasm-bindgen-cli@${WASM_BINDGEN_VERSION}" "cargo-insta@${CARGO_INSTA_VERSION}" cargo-dylint@6.0.3 dylint-link@6.0.3 \
     && mkdir /cargo-bin \
     && cp /usr/local/cargo/bin/twiggy /usr/local/cargo/bin/cargo-sweep /usr/local/cargo/bin/cargo-insta /usr/local/cargo/bin/wasm-bindgen /usr/local/cargo/bin/wasm-bindgen-test-runner /usr/local/cargo/bin/wasm2es6js /usr/local/cargo/bin/cargo-dylint /usr/local/cargo/bin/dylint-link /cargo-bin/
 
@@ -157,7 +167,7 @@ FROM base
 COPY --from=rust-tools /cargo-bin/* /usr/local/cargo/bin/
 
 ARG WASM_PACK_VERSION
-RUN curl -fsSL "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+RUN curl -fsSL "https://github.com/wasm-bindgen/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
        | tar -xz --strip-components=1 -C /usr/local/cargo/bin/ \
          "wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl/wasm-pack"
 
@@ -180,7 +190,32 @@ RUN curl -fsSL "https://github.com/nextest-rs/nextest/releases/download/cargo-ne
        | tar -xz -C /usr/local/cargo/bin/ cargo-nextest
 
 # -- Layer 8: AWS CLI ----------------------------------------------------
-RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip \
+ARG AWS_CLI_VERSION
+RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWS_CLI_VERSION}.zip" -o /tmp/awscliv2.zip \
     && unzip -q /tmp/awscliv2.zip -d /tmp \
     && /tmp/aws/install \
     && rm -rf /tmp/aws /tmp/awscliv2.zip
+
+# -- Layer 9: npm globals ------------------------------------------------
+ARG YARN_VERSION
+ARG ESBUILD_VERSION
+ARG TYPESCRIPT_VERSION
+ARG PRETTIER_VERSION
+RUN npm install -g \
+    "yarn@${YARN_VERSION}" \
+    "esbuild@${ESBUILD_VERSION}" \
+    "typescript@${TYPESCRIPT_VERSION}" \
+    "prettier@${PRETTIER_VERSION}" \
+    && npm cache clean --force
+
+# -- Layer 10: OS security patches ---------------------------------------
+# The apt layers above are cached until the base image or a pinned
+# version changes. PATCH_DATE changes every day, so this cheap layer
+# picks up Ubuntu/NodeSource/Docker/gh/CUDA patch releases on each
+# scheduled build without rebuilding everything above it.
+ARG PATCH_DATE
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    echo "Applying patches as of ${PATCH_DATE}" \
+    && apt-get update \
+    && apt-get upgrade -y --no-install-recommends
