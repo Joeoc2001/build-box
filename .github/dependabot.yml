@@ -1,0 +1,12 @@
+# Tool versions inside the image are resolved at build time by
+# scripts/build-with-latest-versions.sh; this only keeps the workflow's
+# GitHub Actions up to date (merged PRs also count as repo activity).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

@@ -3,10 +3,15 @@ name: Build & Push Images
 on:
   push:
     branches: [main]
+  pull_request:
   schedule:
-    # Run every Sunday at 2 AM UTC to catch dependency updates
-    - cron: '0 2 * * 0'
+    # Daily rebuild to pick up new tool releases and OS security patches.
+    - cron: '17 2 * * *'
   workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -14,12 +19,25 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Needed by the keepalive step below.
+      actions: write
 
     steps:
-      - uses: actions/checkout@v4
+      # GitHub disables scheduled workflows after 60 days without commits to
+      # the repo, which silently stops all auto-builds (and push builds too,
+      # since the whole workflow is disabled). Re-enabling the workflow from
+      # inside a scheduled run resets that inactivity timer.
+      - name: Keep scheduled workflow alive
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/build.yml/enable"
+
+      - uses: actions/checkout@v7
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -31,9 +49,12 @@ jobs:
           echo "APP_IMAGE=ghcr.io/${REPO}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push environment image
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           scripts/build-with-latest-versions.sh \
             --platform linux/amd64 \
@@ -42,3 +63,14 @@ jobs:
             --cache-to type=gha,mode=max,scope=env \
             --tag "${APP_IMAGE}:latest" \
             --tag "${APP_IMAGE}:${GITHUB_SHA}"
+
+      # PRs build (reusing main's cache) but never push, so a broken
+      # Dockerfile or version resolver is caught before it reaches main.
+      - name: Build environment image (no push)
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/build-with-latest-versions.sh \
+            --platform linux/amd64 \
+            --cache-from type=gha,scope=env
